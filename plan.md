@@ -26,7 +26,7 @@ npm run dev             # client on :5173, API server on :3001
 | `AI_AUTO_RUN` | No | `false` | `true` runs the AI's query immediately. Otherwise the AI only fills in the form. |
 | `AI_CLASSIFY_COLUMNS` | No | `true` | Classify each dataset's columns with a small model (once per dataset, cached). `false` = name heuristics only. |
 | `ANTHROPIC_CLASSIFY_MODEL` | No | `claude-haiku-5-5` | Model for column classification. |
-| `PORT` | No | `3001` | API server port |
+| `PORT` | No | `3001` | API server port (the Vite proxy reads the same value) |
 
 ## Stack
 

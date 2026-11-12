@@ -30,6 +30,9 @@ searches and conversations. Additionally, if someone using this app takes the
 time to setup a API key for the Washington State data, then they can increase
 their query limit before experiencing any throttling.
 
+Example of running without an AI key:
+![alt text](AdobeExpressPhotos_7424c4c14ec24c5faec9957dc22e556b_Edited.png)
+
 The vast majority of my time was spent writing up a spec sheet describing what I
 wanted, once I had that written up I used that as my initial prompt to detail a
 plan, and then work went fairly quickly from there executing it. My initial
@@ -69,31 +72,37 @@ Note: Node 24 is required From a terminal currently in the project folder:
 
 # Future improvements given more time
 
-- enable locally run agents, as well as logging in with popular agents with a
-  refined ui experience
-- let users manually generate queries, i.e. a way to “look under the hood” of
+- Let users manually generate queries, i.e. a way to “look under the hood” of
   how queries are being generated and enable them to manually code them
-- the ability to “remember” previous queries
-- ui improvements to the various charts
-- exporting/saving generated charts
-- adjusting the styling of the dataset (color pallet options etc)
-- using a legend, users can filter the data or hide some fields (this should be
-  done with the query builder)
-- supporting more data organizations beyond just washington state
-- joining multiple datasets in a query
-- improved error handling. When submitting a query a response can carry
+- The ability to “remember” previous queries
+- UI improvements to the various charts
+- Exporting/saving generated charts
+- Adjusting the styling of the chart (color pallet options etc), as well as
+  improving readability when there are many data points and text is small
+- Using a legend, users can filter the data or hide some fields (this is only
+  done with the query builder currently). Legends in general could use some
+  improvements to styling, sizing, and placement.
+- Enable locally run agents, as well as logging in with popular agents with a
+  refined ui flow. This app is intended for non technical users, but getting and
+  setting up an API key and running the app don't fit that bill. Deploying this
+  to be actually useful to non-devs would require a flow for someone without the
+  know how for these tools to get up an running with an AI agent without access
+  to a .env file.
+- Supporting more data organizations beyond just washington state
+- Joining multiple datasets in a query
+- Improved error handling. When submitting a query a response can carry
   something like "Value 1: "25th percentile earnings" is not a numeric quantity,
   so aggregating it isn't meaningful. Use "\*" (count rows) or a measure
   column." which might be better simplified using the embedded AI agent
-- better native prompts based on data set chosen. Currently the default prompts
+- Better native prompts based on data set chosen. Currently the default prompts
   are the same for each session, but it would be better if these were
   dynamically populated based on a dataset that the user selected
-- testing. I left this out due to time constraints, but it's an uncomfortable
-  experience
-- do more QA work to fix bugs which I may have missed
-- support SODA 3 along with the current SODA 2.1
-- setup a more robust cache to make queries feel faster. currently responses
+- Testing. I left this out due to time constraints, I've done manual QA work but
+  code should be tested
+- Do more QA work to fix bugs which I may have missed
+- Support SODA 3 along with the current SODA 2.1
+- Setup a more robust cache to make queries feel faster. Currently responses
   from the .gov website take up to 6 seconds to respond, and ideally I would
   like to spend time reducing this as much as possible
-- enable resizing of charts
-- improve chart naming schema/setup
+- Enable resizing of charts
+- Improve default chart naming, and enable editing a chart name
