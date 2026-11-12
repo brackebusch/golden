@@ -148,6 +148,16 @@ function isHorizontal(labels: string[]) {
   return avgLen > 10 || labels.length > 12
 }
 
+/**
+ * The size a chart wants: horizontal bar charts need a height that depends on their bar count;
+ * everything else reads best at a fixed width:height ratio for its plot area.
+ */
+export function chartBox(spec: QuerySpec, result: QueryResult): { height: number } | { aspect: number } {
+  const h = chartHeight(spec, result)
+  if (h) return { height: h }
+  return { aspect: spec.chartType === 'pie' ? 1.5 : spec.chartType === 'scatter' ? 1.6 : 2 }
+}
+
 /** Pixel height for the chart; horizontal bar charts grow with the number of bars. */
 export function chartHeight(spec: QuerySpec, result: QueryResult) {
   if (spec.chartType !== 'bar') return undefined

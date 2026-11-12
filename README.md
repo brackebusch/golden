@@ -1,5 +1,7 @@
 # About
 
+![alt text](AdobeExpressPhotos_47a07ff010e64326b8bf7cefc10710f0_Edited.png)
+
 This is a project built to make data easier to understand for non-technical
 users as part of the Golden Analytics interview cycle. I looked at the datasets
 provided in the email and wasn't really captured by the data, and building a
@@ -93,3 +95,5 @@ Note: Node 24 is required From a terminal currently in the project folder:
 - setup a more robust cache to make queries feel faster. currently responses
   from the .gov website take up to 6 seconds to respond, and ideally I would
   like to spend time reducing this as much as possible
+- enable resizing of charts
+- improve chart naming schema/setup

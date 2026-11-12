@@ -76,7 +76,7 @@ export function ChartPanel({ x, aiEnabled = true }: { x: Explorer; aiEnabled?: b
             <ReactECharts
               option={option}
               notMerge
-              style={{ height: height ?? '100%', minHeight: 280, width: '100%' }}
+              style={{ height: height ?? '100%', minHeight: 200, width: '100%' }}
               opts={{ renderer: 'canvas' }}
             />
           )

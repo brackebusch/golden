@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { QueryForm } from '@/components/QueryForm'
 import { ChartPanel } from '@/components/ChartPanel'
@@ -7,6 +7,43 @@ import { AiSetup, AiSetupBar } from '@/components/AiSetup'
 import { useExplorer } from '@/hooks/useExplorer'
 import { api, type AppConfig } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { chartBox } from '@/lib/chartOptions'
+import type { Explorer } from '@/hooks/useExplorer'
+
+const GAP = 12 // gap-3 between the chart and chat sections
+const MIN_CHAT = 220
+const MIN_CHART = 280
+/** Chart title row + padding above the plot. */
+const CHART_HEADER = 76
+/** Height for "no chart yet", errors and empty results. */
+const PLACEHOLDER_HEIGHT = 300
+
+function useSize(ref: RefObject<HTMLElement | null>) {
+  const [size, setSize] = useState({ w: 0, h: 0 })
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const ro = new ResizeObserver(([e]) => setSize({ w: e.contentRect.width, h: e.contentRect.height }))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [ref])
+  return size
+}
+
+/**
+ * Chart section size: as big as the chart can use, then the chat gets the rest. Width-limited
+ * charts get shorter (freeing height for chat); height-limited ones (chat keeps MIN_CHAT) get
+ * narrower instead, keeping their proportions.
+ */
+function chartSectionSize(x: Explorer, area: { w: number; h: number }) {
+  const maxH = Math.max(MIN_CHART, area.h - GAP - MIN_CHAT)
+  const run = x.lastRun
+  const box =
+    run && run.result.rows.length > 0 && !x.runError ? chartBox(run.spec, run.result) : { height: PLACEHOLDER_HEIGHT - CHART_HEADER }
+  if ('height' in box) return { width: area.w, height: Math.max(MIN_CHART, Math.min(box.height + CHART_HEADER, maxH)) }
+  const height = Math.max(MIN_CHART, Math.min(maxH, area.w / box.aspect + CHART_HEADER))
+  return { width: Math.min(area.w, (height - CHART_HEADER) * box.aspect), height }
+}
 
 const SETUP_HIDDEN_KEY = 'golden:ai-setup-hidden'
 const readHidden = () => {
@@ -21,7 +58,10 @@ export default function App() {
   const x = useExplorer()
   const [config, setConfig] = useState<AppConfig | null>(null)
   useEffect(() => {
-    api.config().then(setConfig).catch(() => setConfig({ aiEnabled: false, aiAutoRun: false }))
+    api
+      .config()
+      .then(setConfig)
+      .catch(() => setConfig({ aiEnabled: false, aiAutoRun: false }))
   }, [])
   const [setupHidden, setSetupHidden] = useState(readHidden)
   const hideSetup = (hidden: boolean) => {
@@ -34,6 +74,10 @@ export default function App() {
   }
   const aiOff = config !== null && !config.aiEnabled
   const collapsed = aiOff && setupHidden
+  const mainRef = useRef<HTMLElement>(null)
+  const area = useSize(mainRef)
+  // With the chat collapsed to a bar there's nothing to give space to: the chart just fills.
+  const chartSize = area.h > 0 && !collapsed ? chartSectionSize(x, area) : null
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -47,12 +91,18 @@ export default function App() {
             <QueryForm x={x} />
           </div>
         </aside>
-        <main className="flex min-w-0 flex-1 flex-col gap-3 p-3">
-          <section className="bg-background relative min-h-0 flex-[3] overflow-hidden rounded-lg border shadow-xs">
+        <main ref={mainRef} className="flex min-w-0 flex-1 flex-col gap-3 p-3">
+          <section
+            className={cn(
+              'bg-background relative min-h-0 self-center overflow-hidden rounded-lg border shadow-xs transition-[width,height] duration-300 ease-out',
+              chartSize ? 'flex-none' : 'w-full flex-1',
+            )}
+            style={chartSize ?? undefined}
+          >
             <ChartPanel x={x} aiEnabled={!aiOff} />
           </section>
           <section
-            className={cn('bg-background overflow-hidden rounded-lg border shadow-xs', collapsed ? 'flex-none' : 'min-h-[200px] flex-[2]')}
+            className={cn('bg-background overflow-hidden rounded-lg border shadow-xs', collapsed ? 'flex-none' : 'min-h-[220px] flex-1')}
           >
             {!aiOff ? (
               <ChatPanel x={x} />

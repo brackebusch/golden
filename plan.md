@@ -242,6 +242,16 @@ Import aliases: `@/*` → `src/client/*` (the shadcn convention) and `@shared/*`
   text in a tooltip on hover, only when it's actually cut off (measured
   against the text's natural width, since `scrollWidth` misses sub-pixel
   overflow).
+- **Chart and chat layout** (`App.tsx`): the chart section is sized to its
+  chart, not a fixed share of the screen. `chartBox` (in `chartOptions.ts`)
+  returns either a height (horizontal bars grow with the bar count) or a
+  width:height ratio (vertical bar and line 2, scatter 1.6, pie 1.5).
+  - The chart is fitted into the main area, minus a 220 px minimum for the
+    chat. When width is the limit, the chart gets shorter and the chat takes
+    the freed height. When height is the limit, the chart gets narrower and
+    stays centered.
+  - Empty, error and zero-row states take a compact 300 px height.
+  - Sizes animate (300 ms), and ECharts resizes itself to follow.
 - **Bar orientation:** bar charts turn horizontal automatically when labels
   are long or there are many of them, and the chart height grows with the
   number of bars.

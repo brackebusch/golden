@@ -347,7 +347,7 @@ export function QueryForm({ x }: { x: Explorer }) {
           </Reveal>
         </div>
 
-        <div className="space-y-2 border-t p-4">
+        <div className="space-y-2 p-4">
           {spec && x.errors.length > 0 && !blocked && !loading && (
             <ul className="text-destructive space-y-0.5 text-xs">
               {x.errors.map((e) => (
