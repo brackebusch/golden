@@ -1,0 +1,60 @@
+{
+  "notes": "Each row is the earnings of one graduate cohort: institution (organizationttl) x award level x program (CIP) x years after graduation. Earnings columns are already medians/percentiles of individuals, so aggregate them with avg/median/min/max, never sum; numrecords (number of graduates in the cohort) is additive. The data is hierarchical and every level is stored as rows: organizationttl = 'Statewide' is all institutions combined; cip_level = 'All CIPs' rows (cip2_title = cip4_title = 'All') are all programs combined; cip_level = '2 Digit' rows (cip4_title = 'All') are broad fields of study; cip_level = '4 Digit' rows are specific programs. IMPORTANT: '4 Digit' program rows exist ONLY for organizationttl = 'Statewide' — individual institutions only have 'All CIPs' and '2 Digit' rows. Always filter to exactly one cip_level to avoid double counting: use 'All CIPs' to compare institutions overall (the default), '2 Digit' to compare broad fields (by institution or statewide), and '4 Digit' with organizationttl = 'Statewide' to compare specific programs statewide. Exclude organizationttl = 'Statewide' when comparing institutions; include only it for statewide program comparisons. Award level and years after graduation strongly affect earnings, so consider filtering to one award level (e.g. Bachelor's) and one year after graduation when comparing. The dataset has no enrollment or student-body size, so it cannot answer 'percentage of students' questions. 25th/75th percentile earnings are 'NULL' for small cohorts.",
+  "columns": {
+    "organizationttl": {
+      "label": "Institution",
+      "rollupValues": [
+        "Statewide"
+      ]
+    },
+    "award_level": {
+      "label": "Award level",
+      "description": "Degree or credential type (Associate, Bachelor's, Master's, Certificate, Apprenticeship, ...)"
+    },
+    "cip_level": {
+      "label": "Program level",
+      "description": "Granularity of the program classification: 'All CIPs', '2 Digit' (broad field) or '4 Digit' (specific program)",
+      "rollupValues": []
+    },
+    "cip2_title": {
+      "label": "Field of study (broad)",
+      "rollupValues": []
+    },
+    "cip4_title": {
+      "label": "Program (specific)",
+      "rollupValues": []
+    },
+    "yearaftergrad": {
+      "label": "Years after graduation"
+    },
+    "_25pctlearnings": {
+      "label": "25th percentile earnings"
+    },
+    "medianearnings": {
+      "label": "Median earnings"
+    },
+    "_75pctlearnings": {
+      "label": "75th percentile earnings"
+    },
+    "numrecords": {
+      "label": "Number of graduates"
+    }
+  },
+  "defaultFilters": [
+    {
+      "op": "not_in",
+      "column": "organizationttl",
+      "values": [
+        "Statewide"
+      ],
+      "rollup": true
+    },
+    {
+      "op": "in",
+      "column": "cip_level",
+      "values": [
+        "All CIPs"
+      ]
+    }
+  ]
+}
