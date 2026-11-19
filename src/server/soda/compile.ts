@@ -28,10 +28,7 @@ export function compileQuery(p: DatasetProfile, spec: QuerySpec): Record<string,
 
   if (spec.dimension) {
     const c = col(spec.dimension.column)
-    const expr =
-      spec.dimension.grain && c.kinds.includes('time')
-        ? `${GRAIN_FN[spec.dimension.grain]}(${c.fieldName})`
-        : c.fieldName
+    const expr = spec.dimension.grain && c.kinds.includes('time') ? `${GRAIN_FN[spec.dimension.grain]}(${c.fieldName})` : c.fieldName
     select.push(`${expr} AS dim`)
     group.push(expr)
     excludeNullTokens(c)
@@ -48,7 +45,13 @@ export function compileQuery(p: DatasetProfile, spec: QuerySpec): Record<string,
       return
     }
     const c = col(m.column)
-    select.push(m.agg === 'count' ? `count(${c.fieldName}) AS m${i}` : `${m.agg}(${num(c)}) AS m${i}`)
+    select.push(
+      m.agg === 'count'
+        ? `count(${c.fieldName}) AS m${i}`
+        : m.agg === 'count_distinct'
+          ? `count(distinct ${c.fieldName}) AS m${i}`
+          : `${m.agg}(${num(c)}) AS m${i}`,
+    )
     if (c.numericText || c.nullTokens.length) excludeNullTokens(c)
   })
 
@@ -99,9 +102,7 @@ export async function runQuery(p: DatasetProfile, spec: QuerySpec): Promise<Quer
   const params = compileQuery(p, spec)
   const key = `query:${p.id}:${JSON.stringify(params)}`
   console.log(`[query] ${p.id} ${JSON.stringify(params)}`)
-  const raw = await cache.getOrSet(key, 10 * 60_000, () =>
-    sodaGet<Record<string, string>[]>(resourceUrl(p.id), params),
-  )
+  const raw = await cache.getOrSet(key, 10 * 60_000, () => sodaGet<Record<string, string>[]>(resourceUrl(p.id), params))
 
   const dimCol = spec.dimension && p.columns.find((c) => c.fieldName === spec.dimension!.column)
   const dimIsNumber = !!dimCol && dimCol.kinds.includes('number') && !dimCol.kinds.includes('time')
@@ -135,18 +136,14 @@ export async function runQuery(p: DatasetProfile, spec: QuerySpec): Promise<Quer
     return t
   }
   const dimTotals = totals('dim')
-  const dims = [...dimTotals.keys()].sort((a, b) =>
-    byDimension ? dir * compareDims(a, b) : dir * (dimTotals.get(a)! - dimTotals.get(b)!),
-  )
+  const dims = [...dimTotals.keys()].sort((a, b) => (byDimension ? dir * compareDims(a, b) : dir * (dimTotals.get(a)! - dimTotals.get(b)!)))
   const seriesTotals = totals('series')
   const series = [...seriesTotals.keys()].sort((a, b) => seriesTotals.get(b)! - seriesTotals.get(a)!)
 
   const keepDims = new Set(dims.slice(0, spec.limit))
   const keepSeries = new Set(series.slice(0, SERIES_LIMIT))
   const order = new Map(dims.map((d, i) => [d, i]))
-  const kept = rows
-    .filter((r) => keepDims.has(r.dim) && keepSeries.has(r.series))
-    .sort((a, b) => order.get(a.dim)! - order.get(b.dim)!)
+  const kept = rows.filter((r) => keepDims.has(r.dim) && keepSeries.has(r.series)).sort((a, b) => order.get(a.dim)! - order.get(b.dim)!)
 
   return {
     rows: kept,

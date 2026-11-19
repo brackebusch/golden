@@ -1,5 +1,15 @@
 import type { ColumnKind, ColumnProfile, DatasetProfile } from './types'
-import { COUNT_ROWS, type Aggregation, type ChartType, type Filter, type Measure, type QuerySpec, type Sort } from './querySpec'
+import {
+  AGG_LABELS,
+  COUNT_ROWS,
+  VALUE_AGGS,
+  type Aggregation,
+  type ChartType,
+  type Filter,
+  type Measure,
+  type QuerySpec,
+  type Sort,
+} from './querySpec'
 
 export interface SlotDef {
   label: string
@@ -101,10 +111,36 @@ export const columnsFor = (p: DatasetProfile, kinds: ColumnKind[]) => visible(p)
  */
 export const measureColumns = (p: DatasetProfile) => columnsFor(p, ['number']).filter((c) => c.role === 'measure')
 
-/** Aggregations that make sense for a measure column ("Number of rows" only counts). */
+/** Numeric columns that aren't measures (ids, codes, years): offered in the form, below the measures. */
+export const otherValueColumns = (p: DatasetProfile) => columnsFor(p, ['number']).filter((c) => c.role !== 'measure')
+
+/** Aggregations suggested for a column: the ones that make sense for its role. */
 export function aggsFor(p: DatasetProfile, column: string): Aggregation[] {
   if (column === COUNT_ROWS) return ['count']
   return p.columns.find((c) => c.fieldName === column)?.aggs ?? []
+}
+
+/** Every aggregation the form allows for a column: suggested ones first, then the rest (with a warning). */
+export function allAggsFor(p: DatasetProfile, column: string): Aggregation[] {
+  if (column === COUNT_ROWS) return ['count']
+  const c = p.columns.find((x) => x.fieldName === column)
+  if (!c?.kinds.includes('number')) return []
+  return [...c.aggs, ...VALUE_AGGS.filter((a) => !c.aggs.includes(a))]
+}
+
+const ROLE_TEXT = { identifier: 'an ID or code', ordinal: 'a year or sequence', measure: 'a rate or average', other: 'not a quantity' }
+
+/**
+ * Why a measure may not mean anything (an aggregation outside the column's suggested ones), or null.
+ * The form shows this as a warning; the AI (strict validation) isn't allowed to do it at all.
+ */
+export function measureWarning(p: DatasetProfile, m: Measure): string | null {
+  if (m.column === COUNT_ROWS) return null
+  const c = p.columns.find((x) => x.fieldName === m.column)
+  if (!c || c.aggs.includes(m.agg)) return null
+  const what = `${AGG_LABELS[m.agg].toLowerCase()} of "${c.label}"`
+  if (c.role === 'measure') return `"${c.label}" looks like ${ROLE_TEXT.measure}, so the ${what} may not mean anything.`
+  return `"${c.label}" looks like ${ROLE_TEXT[c.role]}, so the ${what} may not mean anything.`
 }
 
 /** A measure for a column, keeping the current aggregation when it still makes sense. */
@@ -133,8 +169,12 @@ export function checkCompatibility(p: DatasetProfile, chartType: ChartType): Com
 
 const col = (p: DatasetProfile, name: string) => p.columns.find((c) => c.fieldName === name)
 
-/** Every problem with a spec, as human-readable messages. Empty means valid. */
-export function validateSpec(p: DatasetProfile, spec: QuerySpec): string[] {
+/**
+ * Every problem with a spec, as human-readable messages. Empty means valid.
+ * `strict` (used for the AI) also rejects aggregations outside a column's suggested ones; for
+ * people those are allowed and shown as a warning instead (see measureWarning).
+ */
+export function validateSpec(p: DatasetProfile, spec: QuerySpec, { strict = false }: { strict?: boolean } = {}): string[] {
   const errors: string[] = []
   const chart = CHARTS[spec.chartType]
   if (spec.datasetId !== p.id) errors.push(`datasetId must be "${p.id}".`)
@@ -163,11 +203,12 @@ export function validateSpec(p: DatasetProfile, spec: QuerySpec): string[] {
     }
     const c = col(p, m.column)
     if (!c) errors.push(`Value ${i + 1}: unknown column "${m.column}".`)
-    else if (c.role !== 'measure' || !c.kinds.includes('number'))
+    else if (!c.kinds.includes('number')) errors.push(`Value ${i + 1}: "${c.label}" isn't a number column. Count rows with "*" instead.`)
+    else if (!VALUE_AGGS.includes(m.agg)) errors.push(`Value ${i + 1}: ${m.agg} doesn't apply to a column; use "*" to count rows.`)
+    else if (strict && !c.aggs.includes(m.agg))
       errors.push(
-        `Value ${i + 1}: "${c.label}" is ${c.role === 'identifier' ? 'an identifier or code' : c.role === 'ordinal' ? 'a year or sequence' : 'not a numeric quantity'}, so aggregating it isn't meaningful. Use "*" (count rows) or a measure column.`,
+        `Value ${i + 1}: ${m.agg} of "${c.label}" isn't meaningful for ${c.role === 'measure' ? 'this measure' : `${ROLE_TEXT[c.role]} column`}. Use one of: ${c.aggs.join(', ') || 'none (count rows with "*")'}.`,
       )
-    else if (!c.aggs.includes(m.agg)) errors.push(`Value ${i + 1}: ${m.agg} of "${c.label}" isn't meaningful (use ${c.aggs.join(', ')}).`)
   })
 
   if (spec.series) {
@@ -261,10 +302,10 @@ export function reconcileSpec(p: DatasetProfile, prev: QuerySpec | null, chartTy
   const prevDim = prev.dimension && col(p, prev.dimension.column)
   if (prevDim && accepts(prevDim, chart.dimension.accepts)) next.dimension = prev.dimension
 
-  const usable = new Set([COUNT_ROWS, ...measureColumns(p).map((c) => c.fieldName)])
+  const usable = new Set([COUNT_ROWS, ...columnsFor(p, ['number']).map((c) => c.fieldName)])
   const keep = prev.measures
     .filter((m) => m.column !== next.dimension?.column && usable.has(m.column))
-    .map((m) => measureFor(p, m.column, m.agg))
+    .map((m) => (allAggsFor(p, m.column).includes(m.agg) ? m : measureFor(p, m.column)))
     .slice(0, chart.measures.max)
   if (keep.length >= chart.measures.min) next.measures = keep
   else if (keep.length > 0) next.measures = [...keep, ...next.measures.slice(keep.length)]

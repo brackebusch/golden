@@ -1,12 +1,32 @@
 import { createContext, useContext, type ReactNode } from 'react'
 import { AlertTriangle, Loader2, Play, Plus, RefreshCw, Sparkles, X } from 'lucide-react'
-import { aggsFor, CHART_LIST, CHARTS, checkCompatibility, columnsFor, measureColumns, measureFor } from '@shared/charts'
+import {
+  aggsFor,
+  allAggsFor,
+  CHART_LIST,
+  CHARTS,
+  checkCompatibility,
+  columnsFor,
+  measureColumns,
+  measureFor,
+  measureWarning,
+  otherValueColumns,
+} from '@shared/charts'
 import { AGG_LABELS, COUNT_ROWS, TIME_GRAINS, type ChartType, type Measure, type Sort } from '@shared/querySpec'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import type { Explorer } from '@/hooks/useExplorer'
@@ -208,7 +228,7 @@ export function QueryForm({ x }: { x: Explorer }) {
                           <div className="space-y-1">
                             {chart.measures.min > 1 && <span className="text-muted-foreground text-xs">{chart.measures.labels[i]}</span>}
                             <div className="flex gap-1.5">
-                              {aggsFor(profile, m.column).length > 1 && (
+                              {allAggsFor(profile, m.column).length > 1 && (
                                 <Select
                                   value={m.agg}
                                   onValueChange={(agg) =>
@@ -218,7 +238,7 @@ export function QueryForm({ x }: { x: Explorer }) {
                                     })
                                   }
                                 >
-                                  <SelectTrigger className="w-[104px] shrink-0">
+                                  <SelectTrigger className="w-auto min-w-[104px] shrink-0">
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -227,6 +247,19 @@ export function QueryForm({ x }: { x: Explorer }) {
                                         {AGG_LABELS[a]}
                                       </SelectItem>
                                     ))}
+                                    {allAggsFor(profile, m.column).length > aggsFor(profile, m.column).length && (
+                                      <SelectGroup>
+                                        {aggsFor(profile, m.column).length > 0 && <SelectSeparator />}
+                                        <SelectLabel>May not be meaningful</SelectLabel>
+                                        {allAggsFor(profile, m.column)
+                                          .filter((a) => !aggsFor(profile, m.column).includes(a))
+                                          .map((a) => (
+                                            <SelectItem key={a} value={a} className="text-muted-foreground">
+                                              {AGG_LABELS[a]}
+                                            </SelectItem>
+                                          ))}
+                                      </SelectGroup>
+                                    )}
                                   </SelectContent>
                                 </Select>
                               )}
@@ -241,6 +274,17 @@ export function QueryForm({ x }: { x: Explorer }) {
                                       {c.label}
                                     </SelectItem>
                                   ))}
+                                  {otherValueColumns(profile).length > 0 && (
+                                    <SelectGroup>
+                                      <SelectSeparator />
+                                      <SelectLabel>IDs, codes and years</SelectLabel>
+                                      {otherValueColumns(profile).map((c) => (
+                                        <SelectItem key={c.fieldName} value={c.fieldName}>
+                                          {c.label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectGroup>
+                                  )}
                                 </SelectContent>
                               </Select>
                               {spec!.measures.length > chart.measures.min && (
@@ -259,6 +303,12 @@ export function QueryForm({ x }: { x: Explorer }) {
                                 </Button>
                               )}
                             </div>
+                            <Reveal show={!!measureWarning(profile, m)}>
+                              <p className="text-muted-foreground flex items-start gap-1.5 pt-0.5 text-xs">
+                                <AlertTriangle className="text-warning mt-0.5 size-3.5 shrink-0" />
+                                {measureWarning(profile, m)}
+                              </p>
+                            </Reveal>
                           </div>
                         ),
                       }))}

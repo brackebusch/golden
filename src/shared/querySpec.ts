@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 export const CHART_TYPES = ['bar', 'line', 'scatter', 'pie'] as const
-export const AGGREGATIONS = ['count', 'sum', 'avg', 'median', 'min', 'max'] as const
+export const AGGREGATIONS = ['count', 'sum', 'avg', 'median', 'min', 'max', 'count_distinct'] as const
 export const TIME_GRAINS = ['year', 'month', 'day'] as const
 export const SORTS = ['measure_desc', 'measure_asc', 'dimension_asc', 'dimension_desc'] as const
 
@@ -74,6 +74,22 @@ export const AGG_LABELS: Record<Aggregation, string> = {
   median: 'Median',
   min: 'Min',
   max: 'Max',
+  count_distinct: 'Distinct count',
+}
+
+/** Aggregations that apply to any numeric column (the form offers all of them, warning off-role ones). */
+export const VALUE_AGGS: Aggregation[] = ['sum', 'avg', 'median', 'min', 'max', 'count_distinct']
+
+/** The sensible aggregations (first = default) for each kind of numeric column. */
+export const ROLE_AGGS: Record<'measure' | 'rate' | 'ordinal' | 'identifier', { aggs: Aggregation[]; defaultAgg: Aggregation }> = {
+  /** Additive quantities: counts, amounts, money. */
+  measure: { aggs: ['sum', 'avg', 'median', 'min', 'max'], defaultAgg: 'sum' },
+  /** Rates, percentages, averages, medians: adding them up is meaningless. */
+  rate: { aggs: ['avg', 'median', 'min', 'max'], defaultAgg: 'avg' },
+  /** Years and sequences: latest, earliest, typical, how many distinct. */
+  ordinal: { aggs: ['max', 'min', 'median', 'count_distinct'], defaultAgg: 'max' },
+  /** IDs and codes: only how many distinct ones there are. */
+  identifier: { aggs: ['count_distinct'], defaultAgg: 'count_distinct' },
 }
 
 /** Stable string form of a spec, used to detect a stale chart. */

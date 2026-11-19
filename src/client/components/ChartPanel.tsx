@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef, type ComponentProps } from 'react'
 import ReactECharts from 'echarts-for-react'
 import { AlertCircle, BarChart3, Info, Loader2 } from 'lucide-react'
 import { describeSpec, filterLabel } from '@shared/describe'
@@ -7,6 +7,24 @@ import { Badge } from '@/components/ui/badge'
 import { buildChartOption, chartHeight } from '@/lib/chartOptions'
 import type { Explorer } from '@/hooks/useExplorer'
 import { cn } from '@/lib/utils'
+
+/**
+ * ECharts that redraws whenever its box changes size. The chart section animates its width and
+ * height, and a chart that mounts mid-animation would otherwise stay at its starting size.
+ */
+function AutoSizeChart(props: ComponentProps<typeof ReactECharts>) {
+  const ref = useRef<ReactECharts>(null)
+  useEffect(() => {
+    const el = ref.current?.ele
+    if (!el) return
+    // 'auto' matters: echarts-for-react creates the chart with the box's size at mount as a fixed
+    // width/height, which a plain resize() keeps. 'auto' makes it follow the box again.
+    const ro = new ResizeObserver(() => ref.current?.getEchartsInstance()?.resize({ width: 'auto', height: 'auto' }))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  return <ReactECharts ref={ref} {...props} />
+}
 
 export function ChartPanel({ x, aiEnabled = true }: { x: Explorer; aiEnabled?: boolean }) {
   const run = x.lastRun
@@ -73,7 +91,7 @@ export function ChartPanel({ x, aiEnabled = true }: { x: Explorer; aiEnabled?: b
           </div>
         ) : (
           option && (
-            <ReactECharts
+            <AutoSizeChart
               option={option}
               notMerge
               style={{ height: height ?? '100%', minHeight: 200, width: '100%' }}

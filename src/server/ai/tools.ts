@@ -43,7 +43,8 @@ const TOOL_DEFS: Anthropic.Beta.BetaTool[] = [
   },
   {
     name: 'search_datasets',
-    description: 'Search data.wa.gov for datasets by keyword. Matches dataset names, descriptions, tags and column names. Returns ids, names, descriptions and column names.',
+    description:
+      'Search data.wa.gov for datasets by keyword. Matches dataset names, descriptions, tags and column names. Returns ids, names, descriptions and column names.',
     input_schema: {
       type: 'object',
       properties: { query: { type: 'string' } },
@@ -53,7 +54,7 @@ const TOOL_DEFS: Anthropic.Beta.BetaTool[] = [
   {
     name: 'ask_user',
     description:
-      'Ask the user one clarifying question with 2-5 short answer options shown as buttons (they can also type their own answer). Use only when the answer changes the query. Call it on its own, then wait: your turn ends and the answer comes back as this tool\'s result.',
+      "Ask the user one clarifying question with 2-5 short answer options shown as buttons (they can also type their own answer). Use only when the answer changes the query. Call it on its own, then wait: your turn ends and the answer comes back as this tool's result.",
     input_schema: {
       type: 'object',
       properties: {
@@ -127,7 +128,7 @@ function schemaForAI(p: DatasetProfile) {
         ...(c.description ? { description: c.description } : {}),
         usableAs: c.kinds,
         role: c.role,
-        ...(c.role === 'measure' ? { aggregations: c.aggs, defaultAggregation: c.defaultAgg } : {}),
+        ...(c.aggs.length ? { aggregations: c.aggs, defaultAggregation: c.defaultAgg } : {}),
         ...(c.cardinality != null ? { distinctValues: c.cardinality } : {}),
         sampleValues: c.topValues.slice(0, 10).map((t) => t.value),
         ...(c.min != null && c.kinds.includes('number') ? { min: c.min, max: c.max } : {}),
@@ -142,8 +143,10 @@ function schemaForAI(p: DatasetProfile) {
           compat.ok
             ? {
                 dimension: `${chart.dimension.label}: one column usable as ${chart.dimension.accepts.join(' or ')}`,
-                measures: `${chart.measures.min === chart.measures.max ? chart.measures.min : `${chart.measures.min}-${chart.measures.max}`} (${chart.measures.labels.slice(0, chart.measures.max).join(', ')}); column "*" with agg "count" counts rows; other columns must have role "measure" and use one of their listed aggregations (never aggregate identifiers or years)`,
-                series: chart.series ? `optional column usable as ${chart.series.accepts.join(' or ')}; only one measure allowed when set (except scatter)` : 'not supported',
+                measures: `${chart.measures.min === chart.measures.max ? chart.measures.min : `${chart.measures.min}-${chart.measures.max}`} (${chart.measures.labels.slice(0, chart.measures.max).join(', ')}); column "*" with agg "count" counts rows; other number columns must use one of their listed aggregations (measures: sum/avg/...; years: max/min/median/count_distinct; identifiers: count_distinct only)`,
+                series: chart.series
+                  ? `optional column usable as ${chart.series.accepts.join(' or ')}; only one measure allowed when set (except scatter)`
+                  : 'not supported',
                 sorts: chart.sorts,
               }
             : { compatible: false, reason: compat.reason },
@@ -196,15 +199,20 @@ export async function runTool(
       const { spec: raw, summary } = inputs.set_query.parse(input)
       const parsed = querySpecSchema.safeParse(raw)
       if (!parsed.success)
-        return { isError: true, content: `Invalid spec:\n${parsed.error.issues.map((i) => `- ${i.path.join('.')}: ${i.message}`).join('\n')}` }
+        return {
+          isError: true,
+          content: `Invalid spec:\n${parsed.error.issues.map((i) => `- ${i.path.join('.')}: ${i.message}`).join('\n')}`,
+        }
       const spec = parsed.data
       const p = await getProfile(spec.datasetId)
-      const errors = validateSpec(p, spec)
+      const errors = validateSpec(p, spec, { strict: true })
       for (const f of spec.filters) {
         if ((f.op === 'in' || f.op === 'not_in') && !(f.op === 'not_in' && f.rollup)) {
           const missing = await findMissingValues(p, f.column, f.values)
           if (missing.length)
-            errors.push(`Filter on ${f.column}: these values don't exist: ${missing.map((m) => JSON.stringify(m)).join(', ')}. Use search_values to find exact spellings.`)
+            errors.push(
+              `Filter on ${f.column}: these values don't exist: ${missing.map((m) => JSON.stringify(m)).join(', ')}. Use search_values to find exact spellings.`,
+            )
         }
       }
       if (errors.length) return { isError: true, content: `The spec has problems:\n${errors.map((e) => `- ${e}`).join('\n')}` }

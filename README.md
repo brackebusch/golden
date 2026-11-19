@@ -106,3 +106,6 @@ Note: Node 24 is required From a terminal currently in the project folder:
   like to spend time reducing this as much as possible
 - Enable resizing of charts
 - Improve default chart naming, and enable editing a chart name
+- Enlarge cache (both space and time data lives there)
+- Improve logic to filter relevant columns
+- Improve handling for bad data (formatted numbers like 1,234 or 12%)

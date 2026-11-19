@@ -4,7 +4,8 @@ import type { ColumnKind, ColumnProfile, DatasetProfile } from '@shared/types'
 import type { Filter } from '@shared/querySpec'
 import { cache } from '../cache'
 import { classifyColumns, type Classification } from '../ai/classify'
-import { heuristicRole, MEASURE_AGGS } from './columnRoles'
+import { heuristicRole } from './columnRoles'
+import { ROLE_AGGS } from '@shared/querySpec'
 import { lit, resourceUrl, SodaError, sodaGet, viewUrl } from './http'
 
 const NUMERIC_TYPES = new Set(['number', 'money', 'percent', 'double'])
@@ -133,18 +134,19 @@ function applyRoles(columns: ColumnProfile[], ai: Classification | null, notes: 
     const a = byField.get(c.fieldName)
     if (a && c.kinds.includes('number')) {
       if (a.role === 'measure') {
-        const aggs = a.aggregations.length ? a.aggregations : MEASURE_AGGS
+        const aggs = a.aggregations.length ? a.aggregations : ROLE_AGGS.measure.aggs
         const defaultAgg = a.default_aggregation && aggs.includes(a.default_aggregation) ? a.default_aggregation : aggs[0]
         Object.assign(c, { role: 'measure', aggs, defaultAgg, roleSource: 'ai' })
       } else if (a.role === 'identifier' || a.role === 'ordinal') {
-        Object.assign(c, { role: a.role, aggs: [], defaultAgg: undefined, roleSource: 'ai' })
+        Object.assign(c, { role: a.role, ...ROLE_AGGS[a.role], roleSource: 'ai' })
       }
     }
     const o = notes.columns?.[c.fieldName]
     if (o && (o.role || o.aggs || o.defaultAgg)) {
       if (o.role) c.role = o.role
+      if (o.role === 'identifier' || o.role === 'ordinal') c.aggs = [...ROLE_AGGS[o.role].aggs]
+      if (o.role === 'other') c.aggs = []
       if (o.aggs) c.aggs = o.aggs
-      if (o.role && o.role !== 'measure') c.aggs = []
       c.defaultAgg = o.defaultAgg ?? (c.aggs.includes(c.defaultAgg!) ? c.defaultAgg : c.aggs[0])
       c.roleSource = 'notes'
     }

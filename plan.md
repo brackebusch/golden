@@ -160,23 +160,32 @@ Import aliases: `@/*` → `src/client/*` (the shadcn convention) and `@shared/*`
   - **Column kinds:** `number`, `time` and `category`. Numeric columns with 50
     or fewer distinct values also count as `category`, so "years after
     graduation" can be an axis. Columns with a single value are hidden.
-  - **Column roles:** each column also gets a `role` (`measure`, `identifier`,
-    `ordinal` such as a year, or `other`) plus the aggregations that make
-    sense (`aggs`, `defaultAgg`). Only measures can be values, and only with
-    their own aggregations. So "average of Stock Number" or "sum of median
-    earnings" can't be built in the form, and `validateSpec` rejects them from
-    the AI. There are three layers, each overriding the one before:
-    1. `columnRoles.ts` heuristics: words such as id, code, version, zip, a
-       trailing "Number", year, and values that look like years. Rate words
-       (percent, rate, median, average) rule out `sum`.
-    2. `ai/classify.ts`: one structured-output call to Haiku per dataset
-       (about 2 s and 4k tokens). It runs in parallel with the min/max
-       queries and also picks `suggested.measure` and `suggested.dimension`,
-       which `defaultSpec` prefers. The result is saved to
-       `.cache/columns/<id>.json`, keyed by a hash of the columns and the
-       model, so each dataset is classified only once. On failure the
-       heuristics stay in place.
-    3. The notes file (`role`, `aggs`, `defaultAgg`, `suggested`).
+  - **Column roles:** each numeric column gets a `role` (`measure`,
+    `identifier`, `ordinal` such as a year, or `other`) plus its suggested
+    aggregations (`aggs`, `defaultAgg`, from `ROLE_AGGS` in
+    `shared/querySpec.ts`): measures sum/avg/median/min/max (rates drop sum),
+    years max/min/median/distinct count, identifiers distinct count only.
+    - **People are warned, the AI is held to the rules.** The value picker
+      lists measures first, then a group of "IDs, codes and years"; the
+      aggregation picker lists the suggested ones, then a "May not be
+      meaningful" group. Picking an off-role combination is allowed and shows a
+      warning under the value (`measureWarning`). `validateSpec(p, spec,
+      { strict: true })`, used for the AI's `set_query`, rejects it instead. A
+      wrong guess costs the user a click, never a dead end.
+    - Roles come from three layers, each overriding the one before:
+      1. `columnRoles.ts` heuristics. Strong identifier words (id, zip, fips,
+         latitude…) anywhere; a label ending in a period word ("Fiscal Year")
+         is a year unless it reads "per year"; quantity words (total, count,
+         amount, balance, cases…) then make it a measure; weak identifier
+         words (code, account, district, permit…) and a trailing "Number"
+         count only as the last word; whole numbers in 1900–2100 with ≤60
+         distinct values look like years. Rate words rule out sum.
+      2. `ai/classify.ts`: one structured-output call to Haiku per dataset
+         (about 2 s and 4k tokens), run in parallel with the min/max queries.
+         It also picks `suggested.measure` and `suggested.dimension`, which
+         `defaultSpec` prefers. Saved to `.cache/columns/<id>.json`, keyed by
+         a hash of the columns and model; on failure the heuristics stay.
+      3. The notes file (`role`, `aggs`, `defaultAgg`, `suggested`).
 - **Rollups and default filters:** detected rollup values become removable
   `not_in` chips. A dataset notes file can set `defaultFilters` to replace
   them. This matters because nested rollups can't all be excluded at once: in
@@ -251,7 +260,10 @@ Import aliases: `@/*` → `src/client/*` (the shadcn convention) and `@shared/*`
     the freed height. When height is the limit, the chart gets narrower and
     stays centered.
   - Empty, error and zero-row states take a compact 300 px height.
-  - Sizes animate (300 ms), and ECharts resizes itself to follow.
+  - Sizes animate (300 ms). `AutoSizeChart` (in `ChartPanel.tsx`) watches its
+    box and calls `resize({ width: 'auto', height: 'auto' })`: echarts-for-react
+    creates the chart with its mount-time size fixed, so a plain `resize()`
+    would leave a chart that mounted mid-animation at its starting size.
 - **Bar orientation:** bar charts turn horizontal automatically when labels
   are long or there are many of them, and the chart height grows with the
   number of bars.
